@@ -9,6 +9,8 @@ import { encrypt } from "../utilities/helper";
 import StepOne from "../components/stepOne/stepOne";
 import StepTwo from "../components/stepTwo/stepTwo";
 import StepThree from "../components/stepThree/stepThree";
+import { Divider } from "@chakra-ui/react";
+import { useDeprecatedAnimatedState } from "framer-motion";
 
 export default function Home() {
   const [address, setAddress] = useState("");
@@ -23,6 +25,18 @@ export default function Home() {
   const [newMessages, setNewMessages] = useState([]);
 
   const [web3, setWeb3] = useState(null);
+  const [username, setUsername] = useState("");
+  const [usernameText, setUsernameText] = useState("");
+  const [usernameMap, setUsernameMap] = useState({});
+
+  const { data: getWalletsData } = useMoralisQuery(
+    "Wallet",
+    (query) => query,
+    [],
+    {
+      live: true,
+    }
+  );
 
   useEffect(async () => {
     const web3 = new Web3(Moralis.provider);
@@ -30,13 +44,28 @@ export default function Home() {
 
     const localUser = localStorage.getItem("user");
     if (localUser) {
-      const { address, publicKey, privateKey } = JSON.parse(localUser);
+      const { address, publicKey, privateKey, username } =
+        JSON.parse(localUser);
       setAddress(address);
       setPublicKey(publicKey);
       setPrivateKey(privateKey);
+      setUsernameText(username);
     }
   }, []);
 
+  useEffect(() => {
+    if (getWalletsData) {
+      const usernameMap = getWalletsData.reduce((acc, curr) => {
+        if (curr.get("username")) {
+          return { ...acc, [curr.get("address")]: curr.get("username") };
+        } else {
+          return { ...acc };
+        }
+      }, {});
+      console.log("SET USERNAME MAP TO", usernameMap);
+      setUsernameMap({ ...usernameMap });
+    }
+  }, [getWalletsData]);
   const sendMessage = () => {
     const newMessages = Promise.all(
       selectedItems.map(async (wallet) => {
@@ -47,7 +76,7 @@ export default function Home() {
         );
         return {
           from: address,
-          to: wallet.label,
+          to: wallet.to,
           message: encryptedMessage,
         };
       })
@@ -76,9 +105,12 @@ export default function Home() {
             setPublicKey={setPublicKey}
             setAddress={setAddress}
             web3={web3}
+            username={username}
+            setUsername={setUsername}
+            usernameText={usernameText}
+            setUsernameText={setUsernameText}
           />
         </>
-
         <>
           <StepTwo
             pickerItems={pickerItems}
@@ -90,14 +122,18 @@ export default function Home() {
             setSelectedItems={setSelectedItems}
             newMessages={newMessages}
             setNewMessages={setNewMessages}
+            getWalletsData={getWalletsData}
+            usernameMap={usernameMap}
           />
         </>
+
         <>
           <StepThree
             messages={messages}
             setMessages={setMessages}
             address={address}
             privateKey={privateKey}
+            usernameMap={usernameMap}
           />
         </>
       </main>
