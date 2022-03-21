@@ -1,8 +1,63 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import Head from "next/head";
+import styles from "../styles/Home.module.css";
+import { useState, useEffect } from "react";
+import Web3 from "web3";
+
+import { useMoralisCloudFunction, useMoralisQuery } from "react-moralis";
+import { Moralis } from "moralis";
+import { encrypt } from "../utilities/helper";
+import StepOne from "../components/stepOne/stepOne";
+import StepTwo from "../components/stepTwo/stepTwo";
+import StepThree from "../components/stepThree/stepThree";
 
 export default function Home() {
+  const [address, setAddress] = useState("");
+  const [publicKey, setPublicKey] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
+  const [message, setMessage] = useState("");
+
+  const [pickerItems, setPickerItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+
+  const [messages, setMessages] = useState([]);
+  const [newMessages, setNewMessages] = useState([]);
+
+  const [web3, setWeb3] = useState(null);
+
+  useEffect(async () => {
+    const web3 = new Web3(Moralis.provider);
+    setWeb3(web3);
+
+    const localUser = localStorage.getItem("user");
+    if (localUser) {
+      const { address, publicKey, privateKey } = JSON.parse(localUser);
+      setAddress(address);
+      setPublicKey(publicKey);
+      setPrivateKey(privateKey);
+    }
+  }, []);
+
+  const sendMessage = () => {
+    const newMessages = Promise.all(
+      selectedItems.map(async (wallet) => {
+        const encryptedMessage = await encrypt(
+          message,
+          wallet.value,
+          privateKey
+        );
+        return {
+          from: address,
+          to: wallet.label,
+          message: encryptedMessage,
+        };
+      })
+    );
+    newMessages.then((messages) => {
+      setNewMessages(messages);
+      setMessage("");
+      setSelectedItems([]);
+    });
+  };
   return (
     <div className={styles.container}>
       <Head>
@@ -12,58 +67,40 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+        <>
+          <StepOne
+            privateKey={privateKey}
+            publicKey={publicKey}
+            address={address}
+            setPrivateKey={setPrivateKey}
+            setPublicKey={setPublicKey}
+            setAddress={setAddress}
+            web3={web3}
+          />
+        </>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+        <>
+          <StepTwo
+            pickerItems={pickerItems}
+            selectedItems={selectedItems}
+            message={message}
+            setMessage={setMessage}
+            sendMessage={sendMessage}
+            setPickerItems={setPickerItems}
+            setSelectedItems={setSelectedItems}
+            newMessages={newMessages}
+            setNewMessages={setNewMessages}
+          />
+        </>
+        <>
+          <StepThree
+            messages={messages}
+            setMessages={setMessages}
+            address={address}
+            privateKey={privateKey}
+          />
+        </>
       </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
     </div>
-  )
+  );
 }
